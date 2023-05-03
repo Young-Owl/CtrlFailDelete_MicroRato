@@ -1,82 +1,79 @@
+/**  MicroRato 2023 - Ctrl+Fail+Delete
+  *  2022/2023
+  *  UA - Universidade de Aveiro
+  *  DETI - Departamento de Electrónica, Telecomunicações e Informática
+*/
+
+/* Every generation = Add a new line: */
+/*          CTRL+FAIL+DELETE          */ 
+
 #include <Arduino.h>
 #include <Encoder.h>
 
-//Programa: Motor DC com encoder
-//Autor: Arduino e Cia
+/* PWM Pins: 3, 5, 6, 9, 10, 11 */
 
-const byte Encoder_C1 = 2;
-const byte Encoder_C2 = 4;
-byte Encoder_C1Last;
-int duracao;
-boolean Direcao;
+/* Defining PINs for the L298N Module */
+#define M1_EN     11  /**< Motor 1 Speed Control. (PWM)   */
+#define M1_CLOCK  2   /**< Motor 1 Clockwise Control.     */
+#define M1_ACLOCK 3   /**< Motor 1 Anti-Clockwise Control.*/
+#define M2_EN     10  /**< Motor 2 Speed Control. (PWM)   */
+#define M2_CLOCK  4   /**< Motor 2 Clockwise Control.     */
+#define M2_ACLO   5   /**< Motor 2 Anti-Clockwise Control.*/
 
-//Pinos de ligacao ponte H L298N
-#define pino_motor1 6
-#define pino_motor2 7
+/* Defining PINs for the Encoder Module */
+#define ENCODER1_A 7  /**< Motor 1 Encoder A.             */
+#define ENCODER1_B 6    /**< Motor 1 Encoder B.             */
+#define ENCODER2_A 9  /**< Motor 2 Encoder A.             */
+#define ENCODER2_B 8  /**< Motor 2 Encoder B.             */
 
+volatile int time = 0;
+volatile int lastPulse = 0;
+volatile int pinCurrentState = 0;
+volatile int pinLastState = 0;
+volatile bool direction = false;  /**< false = Anti-Clockwise, true = Clockwise */
 
+void pulseDetect(){
+  pinCurrentState = digitalRead(ENCODER1_A);
 
-void calculapulso()
-{
-  int Lstate = digitalRead(Encoder_C1);
-  if ((Encoder_C1Last == LOW) && Lstate == HIGH)
-  {
-    int val = digitalRead(Encoder_C2);
-    if (val == LOW && Direcao)
-    {
-      Direcao = false; //Reverse
+  if(pinCurrentState == HIGH && pinLastState == LOW){
+    if(digitalRead(ENCODER1_B) == LOW && direction){
+      direction = false;
     }
-    else if (val == HIGH && !Direcao)
-    {
-      Direcao = true;  //Forward
+    else if(digitalRead(ENCODER1_B) == HIGH && !direction){
+      direction = true;
     }
   }
-  Encoder_C1Last = Lstate;
+  if(direction) { time++; }
+  else          { time--; }
 
-  if (!Direcao)  duracao++;
-  else  duracao--;
+  pinLastState = pinCurrentState;
 }
-
-void EncoderInit()
-{
-  pinMode(Encoder_C2, INPUT);
-  attachInterrupt(0, calculapulso, CHANGE);
-}
-
 
 void setup()
 {
   Serial.begin(9600);
-  //Pino potenciometro
-  pinMode(A0, INPUT);
-  //Definicao pinos ponte H
-  pinMode(pino_motor1, OUTPUT);
-  pinMode(pino_motor2, OUTPUT);
-  //Definicao do encoder
-  EncoderInit();
+
+  /* Define PinArray */
+  int outPins[] = {M1_EN, M1_CLOCK, M1_ACLOCK, M2_EN, M2_CLOCK, M2_ACLO};
+  int inPins[] = {ENCODER1_A, ENCODER1_B, ENCODER2_A, ENCODER2_B};
+
+  /* Define PinModes */
+  for(int i = 0; i < sizeof(outPins); i++){
+    pinMode(outPins[i], OUTPUT);
+  }
+
+  for(int i = 0;i < sizeof(inPins); i++){
+    pinMode(inPins[i], INPUT);
+  }
+
+  /* Initialize the Enconder Interrupts */
+  attachInterrupt(digitalPinToInterrupt(ENCODER1_A), pulseDetect, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER2_A), pulseDetect, CHANGE);
 }
 
 void loop()
 {
-  Serial.print("Pulso: ");
-  Serial.print(duracao);
-  int valor = analogRead(A0);
-  if (valor >= 512)
-  {
-    digitalWrite(pino_motor1, LOW);
-    digitalWrite(pino_motor2, LOW);
-    //delay(1000);
-    digitalWrite(pino_motor1, LOW);
-    digitalWrite(pino_motor2, HIGH);
-    Serial.println(" Sentido: Anti-horario");
-  }
-  else
-  {
-    digitalWrite(pino_motor1, HIGH);
-    digitalWrite(pino_motor2, LOW);
-    Serial.println(" Sentido: Horario");
-  }
-  duracao = 0;
-  delay(100);
+  Serial.println(time);
+  delay(1000);
 }
 
