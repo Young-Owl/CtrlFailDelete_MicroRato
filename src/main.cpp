@@ -69,6 +69,8 @@ void setup()
   /* Initialize the Enconder Interrupts */
   attachInterrupt(digitalPinToInterrupt(ENCODER1_A), pulseDetect, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ENCODER2_A), pulseDetect, CHANGE);
+
+  
 }
 
 void loop()
