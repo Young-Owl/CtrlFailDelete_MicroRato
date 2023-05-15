@@ -11,7 +11,7 @@ The Maze Solving Robot that's still in development!   <sub><sub><sub>If it manag
 
 - Info sobre Encoder Built-In: https://www.electroniclinic.com/arduino-dc-motor-speed-control-with-encoder-arduino-dc-motor-encoder/
 
-- Tipos de Motores: https://www.youtube.com/watch?v=PVyAcgYkzDs
+- Tipos de Motores: https://www.youtube.com/watch?v=WKkmRcFUSSc&t=332s
 
 - Tipos de Motor Drivers: https://www.youtube.com/watch?v=PVyAcgYkzDs
 
@@ -20,3 +20,5 @@ The Maze Solving Robot that's still in development!   <sub><sub><sub>If it manag
 - Optical Encoder, detailed: https://assunmotor.com/blog/optical-encoder/
 
 - IR Denoiser Code (Checks for ambient light, then removes): https://www.youtube.com/watch?v=-jA5W2S5PeE
+
+- MPU6050 - Gyroscope Library for easy control: https://www.youtube.com/watch?v=AK-hH2ZbJJQ
