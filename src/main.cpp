@@ -39,6 +39,11 @@ MPU6050 mpu6050(Wire);
 #define IRFL A3       /**< Front Left IR Sensor Analog Pin  */
 #define IRR A5        /**< Right IR Sensor Analog Pin */
 #define IRL A4        /**< Left IR Sensor Analog Pin  */
+#define THRESHOLD 500 /**< Decision threshold*/
+#define END 0b1111    /**< End of track*/
+#define STRAIT 0b0110 /**< Strait path*/
+#define LETF_TURN 0b1000 /**< Left turn*/
+#define RIGT_TURN 0b0001 /**< Right turn*/
 
 /* Defining PINs for the START and STOP Buttons */
 #define START 28      /**< Start Button Pin */
@@ -47,11 +52,13 @@ MPU6050 mpu6050(Wire);
 int AVG_IRL, AVG_IRR, AVG_IRFL, AVG_IRFR;         /**< Average IR Sensor Value */
 int IRR_LDATA ,IRL_LDATA, IRFR_LDATA, IRFL_LDATA; /**< IR Sensor Last Values */
 int IRR_DATA, IRL_DATA, IRFR_DATA, IRFL_DATA;     /**< IR Sensor Storage Variables */
+int IR_DATA;
 int M1_SPEED = 0, M2_SPEED = 0;                   /**< Motor Speed Variables */
 EasyButton startButton(START, 30, false, false);                      /**< Start Button Object */
 EasyButton stopButton(STOP, 30, false, false);                        /**< Stop Button Object */
 int startState = 0, stopState = 0;                /**< Button State Variable */
 int lstartState = 0, lstopState = 0;              /**< Last Button State Variable */
+int skrt;                                         /**< Flag, running (change name)*/
 
 
 void goStraight(){
@@ -103,17 +110,52 @@ void readIRSensor(){
   IRR_DATA = analogRead(IRR) - AVG_IRR;
   IRFL_DATA = analogRead(IRFL) - AVG_IRFL;
   IRFR_DATA = analogRead(IRFR) - AVG_IRFR;
+
+  if(abs(IRL_DATA)< 500) IRL_DATA= 0;
+  else IRL_DATA= 1;
+
+  if(abs(IRR_DATA)< 500) IRR_DATA= 0;
+  else IRR_DATA= 1;
+
+  if(abs(IRFL_DATA)< 500) IRFL_DATA= 0;
+  else IRFL_DATA= 1;
+
+  if(abs(IRFR_DATA)< 500) IRFR_DATA= 0;
+  else IRFR_DATA= 1;
+
+  IR_DATA= (IRL_DATA<< 3) + (IRFL_DATA<< 2)+ (IRFR_DATA<< 1) +IRR_DATA;
+
+  /*
   if (IRL_DATA - IRL_LDATA > 100){
     goLeft();
   }
   else if (IRR_DATA - IRR_LDATA > 100){
     goRight();
   }
+  */
+
+  if (IR_DATA== LETF_TURN){
+    goLeft();
+  }
+  else if (IR_DATA== RIGT_TURN){
+    goRight();
+  }
+  else if(IR_DATA== STRAIT){  // might not be needed
+    goStraight();
+  }
+  else if(IR_DATA== STRAIT){
+    stop();
+    skrt= 0;
+  }
+
   IRL_LDATA = IRL_DATA;
   IRR_LDATA = IRR_DATA;
   IRFL_LDATA = IRFL_DATA;
   IRFR_LDATA = IRFR_DATA;
+
+
   #ifdef DEBUG
+  /*
     Serial.print("IRL: ");
     Serial.print(IRL_DATA);
     Serial.print(" IRR: ");
@@ -122,6 +164,8 @@ void readIRSensor(){
     Serial.print(IRFL_DATA);
     Serial.print(" IRFR: ");
     Serial.println(IRFR_DATA);
+  */
+    Serial.println(IR_DATA, BIN);
   #endif
 }
 
@@ -191,15 +235,18 @@ void loop()
   if(startState != lstartState){
     if(startState == 1){
       goStraight();
-      readIRSensor();
+      skrt= 1;    
     }
   }
 
   if(stopState != lstopState){
     if(stopState == 1){
       stop();
+      skrt= 0;
     }
   }
+
+  if(skrt== 1) readIRSensor();
 
   lstartState = startState;
   lstopState = stopState;
