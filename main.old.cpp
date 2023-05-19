@@ -19,49 +19,40 @@
 /* Debug purposes only, remove comment to see the outputs */
 #define DEBUG
 
+
 /* PINs SCL and SDA (I2C Protocol) will be used for the GY-521 Module (Gyroscope)*/
 MPU6050 mpu6050(Wire);
 
 /* Defining PINs for the L298N Module 
  * Clockwise = Wheel pushes the robot forward;
  * Anti-Clockwise = Wheel pushes the robot backwards;     */ 
-#define M1_EN     2     /**< Motor 1 Speed Control. (PWM)   */
-#define M1_CLOCK  53    /**< Motor 1 Clockwise Control.     */
-#define M1_ACLOCK 50    /**< Motor 1 Anti-Clockwise Control.*/
-#define M2_EN     3     /**< Motor 2 Speed Control. (PWM)   */
-#define M2_CLOCK  51    /**< Motor 2 Clockwise Control.     */
-#define M2_ACLOCK 52    /**< Motor 2 Anti-Clockwise Control.*/
+#define M1_EN     2   /**< Motor 1 Speed Control. (PWM)   */
+#define M1_CLOCK  53  /**< Motor 1 Clockwise Control.     */
+#define M1_ACLOCK 52   /**< Motor 1 Anti-Clockwise Control.*/
+#define M2_EN     3   /**< Motor 2 Speed Control. (PWM)   */
+#define M2_CLOCK  51  /**< Motor 2 Clockwise Control.     */
+#define M2_ACLOCK 50   /**< Motor 2 Anti-Clockwise Control.*/
 
 /* Defining PINs for the 2 side IR sensors */
-#define IR_EN 24          /**< Global IR Sensor enable */
-#define IRFR A2           /**< Front Right IR Sensor Analog Pin */
-#define IRFL A3           /**< Front Left IR Sensor Analog Pin  */
-#define IRR A5            /**< Right IR Sensor Analog Pin */
-#define IRL A4            /**< Left IR Sensor Analog Pin  */
-#define THRESHOLD 500     /**< Decision threshold*/
-#define END 0b0000        /**< End of track*/
-#define STRAIT 0b1001     /**< Strait path*/
-#define LETF_TURN 0b0111  /**< Left turn*/
-#define RIGT_TURN 0b1110  /**< Right turn*/
+#define IR_EN 24       /**< Global IR Sensor enable */
+#define IRFR A2       /**< Front Right IR Sensor Analog Pin */
+#define IRFL A3       /**< Front Left IR Sensor Analog Pin  */
+#define IRR A5        /**< Right IR Sensor Analog Pin */
+#define IRL A4        /**< Left IR Sensor Analog Pin  */
 
 /* Defining PINs for the START and STOP Buttons */
 #define START 28      /**< Start Button Pin */
 #define STOP 29       /**< Stop Button Pin  */
 
-/* Defining PIN for the Led above the head */
-#define HEAD_LED 41   /**< Led Pin for visual debugging */
-
 int AVG_IRL, AVG_IRR, AVG_IRFL, AVG_IRFR;         /**< Average IR Sensor Value */
 int IRR_LDATA ,IRL_LDATA, IRFR_LDATA, IRFL_LDATA; /**< IR Sensor Last Values */
 int IRR_DATA, IRL_DATA, IRFR_DATA, IRFL_DATA;     /**< IR Sensor Storage Variables */
-int IR_DATA;                                      /**< IR Sensor Visual Variable */                    
 int M1_SPEED = 0, M2_SPEED = 0;                   /**< Motor Speed Variables */
-EasyButton startButton(START, 30, false, false);  /**< Start Button Object */
-EasyButton stopButton(STOP, 30, false, false);    /**< Stop Button Object */
+EasyButton startButton(START, 30, false, false);                      /**< Start Button Object */
+EasyButton stopButton(STOP, 30, false, false);                        /**< Stop Button Object */
 int startState = 0, stopState = 0;                /**< Button State Variable */
 int lstartState = 0, lstopState = 0;              /**< Last Button State Variable */
-int run;                                          /**< Flag, running (change name)*/
-int ledState = 0;                                 /**< Led State Variable */
+
 
 void goStraight(){
   M1_SPEED = 225;
@@ -72,10 +63,6 @@ void goStraight(){
   digitalWrite(M2_CLOCK,HIGH);
   digitalWrite(M1_ACLOCK,LOW);
   digitalWrite(M2_ACLOCK,LOW);
-
-  #ifdef DEBUG
-  //Serial.println("STRAIT");
-  #endif
 }
 
 void goRight(){
@@ -86,28 +73,18 @@ void goRight(){
   digitalWrite(M1_CLOCK,HIGH);
   digitalWrite(M2_CLOCK,LOW);
   digitalWrite(M1_ACLOCK,LOW);
-  digitalWrite(M2_ACLOCK,HIGH); 
-
-  #ifdef DEBUG
-  Serial.println("RIGHT");
-  #endif
+  digitalWrite(M2_ACLOCK,HIGH);
 }
 
 void goLeft(){
   M1_SPEED = 225;
   M2_SPEED = 255;
-  
-  digitalWrite(M1_CLOCK,LOW);
-  digitalWrite(M2_ACLOCK,LOW);
-  digitalWrite(M2_CLOCK,HIGH);
-  digitalWrite(M1_ACLOCK,HIGH);
-  
   analogWrite(M1_EN,M1_SPEED);
   analogWrite(M2_EN,M2_SPEED);
-
-  #ifdef DEBUG
-  Serial.println("LEFT");
-  #endif
+  digitalWrite(M1_CLOCK,LOW);
+  digitalWrite(M2_CLOCK,HIGH);
+  digitalWrite(M1_ACLOCK,HIGH);
+  digitalWrite(M2_ACLOCK,LOW);
 }
 
 void stop(){
@@ -119,10 +96,6 @@ void stop(){
   digitalWrite(M2_CLOCK,LOW);
   digitalWrite(M1_ACLOCK,LOW);
   digitalWrite(M2_ACLOCK,LOW);
-
-  #ifdef DEBUG
-  Serial.println("STOP");
-  #endif
 }
 
 void readIRSensor(){
@@ -130,52 +103,17 @@ void readIRSensor(){
   IRR_DATA = analogRead(IRR) - AVG_IRR;
   IRFL_DATA = analogRead(IRFL) - AVG_IRFL;
   IRFR_DATA = analogRead(IRFR) - AVG_IRFR;
-
-  if(abs(IRL_DATA)< 500) IRL_DATA= 0;
-  else IRL_DATA= 1;
-
-  if(abs(IRR_DATA)< 500) IRR_DATA= 0;
-  else IRR_DATA= 1;
-
-  if(abs(IRFL_DATA)< 500) IRFL_DATA= 0;
-  else IRFL_DATA= 1;
-
-  if(abs(IRFR_DATA)< 500) IRFR_DATA= 0;
-  else IRFR_DATA= 1;
-
-  IR_DATA= (IRL_DATA<< 3) + (IRFL_DATA<< 2)+ (IRFR_DATA<< 1) +IRR_DATA;
-
-  /*
   if (IRL_DATA - IRL_LDATA > 100){
     goLeft();
   }
   else if (IRR_DATA - IRR_LDATA > 100){
     goRight();
   }
-  */
-
-  if (IR_DATA== LETF_TURN){
-    goLeft();
-  }
-  else if (IR_DATA== RIGT_TURN){
-    goRight();
-  }
-  else if(IR_DATA== STRAIT){  // might not be needed
-    goStraight();
-  }
-  else if(IR_DATA== END){
-    stop();
-    // run= 0;
-  }
-
   IRL_LDATA = IRL_DATA;
   IRR_LDATA = IRR_DATA;
   IRFL_LDATA = IRFL_DATA;
   IRFR_LDATA = IRFR_DATA;
-
-
   #ifdef DEBUG
-  /*
     Serial.print("IRL: ");
     Serial.print(IRL_DATA);
     Serial.print(" IRR: ");
@@ -184,8 +122,6 @@ void readIRSensor(){
     Serial.print(IRFL_DATA);
     Serial.print(" IRFR: ");
     Serial.println(IRFR_DATA);
-  */
-    Serial.println(IR_DATA, BIN);
   #endif
 }
 
@@ -194,7 +130,7 @@ void setup()
   Serial.begin(9600);
 
   /* Defining the PINs Array for Input / Output */
-  int outPins[] = {M1_EN, M1_CLOCK, M1_ACLOCK, M2_EN, M2_CLOCK, M2_ACLOCK, IR_EN, HEAD_LED};
+  int outPins[] = {M1_EN, M1_CLOCK, M1_ACLOCK, M2_EN, M2_CLOCK, M2_ACLOCK, IR_EN};
   int inPins[] = {IRL, IRR, IRFL, IRFR, START, STOP};
   int inPins_size = (sizeof(inPins)/sizeof(inPins[0]));
   int outPins_size = (sizeof(outPins)/sizeof(outPins[0]));
@@ -203,10 +139,13 @@ void setup()
     pinMode(outPins[i], OUTPUT);
   }
   for(int i = 0; i < inPins_size; i++){
-    pinMode(inPins[i], INPUT);
+    pinMode(inPins[i], OUTPUT);
   }
-
-  digitalWrite(HEAD_LED, HIGH);
+  pinMode(IRL, INPUT);
+  pinMode(IRR, INPUT);
+  pinMode(IRFL, INPUT);
+  pinMode(IRFR, INPUT);
+  
   digitalWrite(IR_EN, LOW);
 
   for(int i = 0; i < 20; i++){
@@ -242,36 +181,38 @@ void setup()
                                                " IRFL: " + String(AVG_IRFL) + 
                                                " IRFR: " + String(AVG_IRFR));
   #endif
-  
-  ledState = 0;
 }
 
 void loop()
 {
   startState = startButton.read();
   stopState = stopButton.read();
-  digitalWrite(HEAD_LED, ledState);
 
   if(startState != lstartState){
     if(startState == 1){
       goStraight();
-      run= 1;    
+      readIRSensor();
     }
   }
 
   if(stopState != lstopState){
     if(stopState == 1){
       stop();
-      run= 0;
     }
   }
 
-  if(run== 1) readIRSensor();
-
   lstartState = startState;
   lstopState = stopState;
-  ledState = !ledState;
-  delay(50);
+
+  mpu6050.update();
+  Serial.print("X: ");
+  Serial.print(mpu6050.getAngleX());
+  Serial.print(" Y: ");
+  Serial.print(mpu6050.getAngleY());
+  Serial.print(" Z: ");
+  Serial.println(mpu6050.getAngleZ());
+  
+  delay(500);
 }
 
 
