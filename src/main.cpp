@@ -40,10 +40,10 @@ MPU6050 mpu6050(Wire);
 #define IRR A5        /**< Right IR Sensor Analog Pin */
 #define IRL A4        /**< Left IR Sensor Analog Pin  */
 #define THRESHOLD 500 /**< Decision threshold*/
-#define END 0b1111    /**< End of track*/
-#define STRAIT 0b0110 /**< Strait path*/
-#define LETF_TURN 0b1000 /**< Left turn*/
-#define RIGT_TURN 0b0001 /**< Right turn*/
+#define END 0b0000    /**< End of track*/
+#define STRAIT 0b1001 /**< Strait path*/
+#define LETF_TURN 0b0111 /**< Left turn*/
+#define RIGT_TURN 0b1110 /**< Right turn*/
 
 /* Defining PINs for the START and STOP Buttons */
 #define START 28      /**< Start Button Pin */
@@ -70,6 +70,10 @@ void goStraight(){
   digitalWrite(M2_CLOCK,HIGH);
   digitalWrite(M1_ACLOCK,LOW);
   digitalWrite(M2_ACLOCK,LOW);
+
+  #ifdef DEBUG
+  //Serial.println("STRAIT");
+  #endif
 }
 
 void goRight(){
@@ -80,7 +84,11 @@ void goRight(){
   digitalWrite(M1_CLOCK,HIGH);
   digitalWrite(M2_CLOCK,LOW);
   digitalWrite(M1_ACLOCK,LOW);
-  digitalWrite(M2_ACLOCK,HIGH);
+  digitalWrite(M2_ACLOCK,HIGH); 
+
+  #ifdef DEBUG
+  Serial.println("RIGHT");
+  #endif
 }
 
 void goLeft(){
@@ -92,6 +100,10 @@ void goLeft(){
   digitalWrite(M2_CLOCK,HIGH);
   digitalWrite(M1_ACLOCK,HIGH);
   digitalWrite(M2_ACLOCK,LOW);
+
+  #ifdef DEBUG
+  Serial.println("LEFT");
+  #endif
 }
 
 void stop(){
@@ -103,6 +115,10 @@ void stop(){
   digitalWrite(M2_CLOCK,LOW);
   digitalWrite(M1_ACLOCK,LOW);
   digitalWrite(M2_ACLOCK,LOW);
+
+  #ifdef DEBUG
+  Serial.println("STOP");
+  #endif
 }
 
 void readIRSensor(){
@@ -143,9 +159,9 @@ void readIRSensor(){
   else if(IR_DATA== STRAIT){  // might not be needed
     goStraight();
   }
-  else if(IR_DATA== STRAIT){
+  else if(IR_DATA== END){
     stop();
-    skrt= 0;
+    // skrt= 0;
   }
 
   IRL_LDATA = IRL_DATA;
@@ -189,7 +205,7 @@ void setup()
   pinMode(IRR, INPUT);
   pinMode(IRFL, INPUT);
   pinMode(IRFR, INPUT);
-  
+
   digitalWrite(IR_EN, LOW);
 
   for(int i = 0; i < 20; i++){
