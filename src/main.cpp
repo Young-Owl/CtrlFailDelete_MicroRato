@@ -38,11 +38,12 @@ MPU6050 mpu6050(Wire);
 #define IRFL A3           /**< Front Left IR Sensor Analog Pin  */
 #define IRR A5            /**< Right IR Sensor Analog Pin */
 #define IRL A4            /**< Left IR Sensor Analog Pin  */
-#define THRESHOLD 500     /**< Decision threshold*/
-#define END 0b0000        /**< End of track*/
-#define STRAIT 0b1001     /**< Strait path*/
-#define LETF_TURN 0b0111  /**< Left turn*/
-#define RIGT_TURN 0b1110  /**< Right turn*/
+#define THRESHOLD 500     /**< Decision threshold */
+#define END 0b0000        /**< End of track */
+#define STRAIT 0b1001     /**< Strait path */
+#define LETF_TURN 0b0111  /**< Left turn */
+#define RIGT_TURN 0b1110  /**< Right turn */
+#define INTERSECTION 0b1111       /**< Intersection turn */
 
 /* Defining PINs for the START and STOP Buttons */
 #define START 28      /**< Start Button Pin */
@@ -50,6 +51,9 @@ MPU6050 mpu6050(Wire);
 
 /* Defining PIN for the Led above the head */
 #define HEAD_LED 41   /**< Led Pin for visual debugging */
+
+#define RMOTOR_SPEED 225 /**< Motor Speed */
+#define LMOTOR_SPEED 255 /**< Motor Speed */
 
 int AVG_IRL, AVG_IRR, AVG_IRFL, AVG_IRFR;         /**< Average IR Sensor Value */
 int IRR_LDATA ,IRL_LDATA, IRFR_LDATA, IRFL_LDATA; /**< IR Sensor Last Values */
@@ -62,16 +66,15 @@ int startState = 0, stopState = 0;                /**< Button State Variable */
 int lstartState = 0, lstopState = 0;              /**< Last Button State Variable */
 int run;                                          /**< Flag, running (change name)*/
 int ledState = 0;                                 /**< Led State Variable */
+int lastAngle = 0;                                /**< Gyroscope Last Angle Variable */
 
 void goStraight(){
-  M1_SPEED = 225;
-  M2_SPEED = 255;
-  analogWrite(M1_EN,M1_SPEED);
-  analogWrite(M2_EN,M2_SPEED);
   digitalWrite(M1_CLOCK,HIGH);
   digitalWrite(M2_CLOCK,HIGH);
   digitalWrite(M1_ACLOCK,LOW);
   digitalWrite(M2_ACLOCK,LOW);
+  analogWrite(M1_EN,RMOTOR_SPEED*0.4);
+  analogWrite(M2_EN,LMOTOR_SPEED*0.4);
 
   #ifdef DEBUG
   //Serial.println("STRAIT");
@@ -81,12 +84,12 @@ void goStraight(){
 void goRight(){
   M1_SPEED = 225;
   M2_SPEED = 255;
-  analogWrite(M1_EN,M1_SPEED);
-  analogWrite(M2_EN,M2_SPEED);
   digitalWrite(M1_CLOCK,HIGH);
   digitalWrite(M2_CLOCK,LOW);
   digitalWrite(M1_ACLOCK,LOW);
   digitalWrite(M2_ACLOCK,HIGH); 
+  analogWrite(M1_EN,RMOTOR_SPEED*0.4);
+  analogWrite(M2_EN,LMOTOR_SPEED*0.4);
 
   #ifdef DEBUG
   Serial.println("RIGHT");
@@ -94,16 +97,20 @@ void goRight(){
 }
 
 void goLeft(){
-  M1_SPEED = 225;
-  M2_SPEED = 255;
-  
+ 
+  mpu6050.update();
+  lastAngle = mpu6050.getAngleX();
+
   digitalWrite(M1_CLOCK,LOW);
   digitalWrite(M2_ACLOCK,LOW);
   digitalWrite(M2_CLOCK,HIGH);
   digitalWrite(M1_ACLOCK,HIGH);
-  
-  analogWrite(M1_EN,M1_SPEED);
-  analogWrite(M2_EN,M2_SPEED);
+  analogWrite(M1_EN,RMOTOR_SPEED*0.4);
+  analogWrite(M2_EN,LMOTOR_SPEED*0.4);
+
+  while(lastAngle - mpu6050.getAngleX() < abs(90)){
+    mpu6050.update();
+  }
 
   #ifdef DEBUG
   Serial.println("LEFT");
@@ -113,12 +120,12 @@ void goLeft(){
 void stop(){
   M1_SPEED = 0;
   M2_SPEED = 0;
-  analogWrite(M1_EN,M1_SPEED);
-  analogWrite(M2_EN,M2_SPEED);
   digitalWrite(M1_CLOCK,LOW);
   digitalWrite(M2_CLOCK,LOW);
   digitalWrite(M1_ACLOCK,LOW);
   digitalWrite(M2_ACLOCK,LOW);
+  analogWrite(M1_EN,LMOTOR_SPEED*0);
+  analogWrite(M2_EN,RMOTOR_SPEED*0);
 
   #ifdef DEBUG
   Serial.println("STOP");
@@ -126,10 +133,17 @@ void stop(){
 }
 
 void readIRSensor(){
+  /*
   IRL_DATA = analogRead(IRL) - AVG_IRL;
   IRR_DATA = analogRead(IRR) - AVG_IRR;
   IRFL_DATA = analogRead(IRFL) - AVG_IRFL;
   IRFR_DATA = analogRead(IRFR) - AVG_IRFR;
+  */
+
+  IRL_DATA = analogRead(IRL);
+  IRR_DATA = analogRead(IRR);
+  IRFL_DATA = analogRead(IRFL);
+  IRFR_DATA = analogRead(IRFR);
 
   if(abs(IRL_DATA)< 500) IRL_DATA= 0;
   else IRL_DATA= 1;
@@ -162,6 +176,9 @@ void readIRSensor(){
   }
   else if(IR_DATA== STRAIT){  // might not be needed
     goStraight();
+  }
+  else if(IR_DATA== INTERSECTION){
+    goRight();
   }
   else if(IR_DATA== END){
     stop();
@@ -205,6 +222,8 @@ void setup()
   for(int i = 0; i < inPins_size; i++){
     pinMode(inPins[i], INPUT);
   }
+
+  AVG_IRFL = 0; AVG_IRFR = 0; AVG_IRL = 0; AVG_IRR = 0;
 
   digitalWrite(HEAD_LED, HIGH);
   digitalWrite(IR_EN, LOW);
@@ -266,8 +285,10 @@ void loop()
     }
   }
 
-  if(run== 1) readIRSensor();
-
+  if(run== 1){
+    readIRSensor();
+    mpu6050.update();
+  }
   lstartState = startState;
   lstopState = stopState;
   ledState = !ledState;
