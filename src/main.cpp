@@ -34,16 +34,27 @@ MPU6050 mpu6050(Wire);
 
 /* Defining PINs for the 2 side IR sensors */
 #define IR_EN 24          /**< Global IR Sensor enable */
-#define IRFR A2           /**< Front Right IR Sensor Analog Pin */
-#define IRFL A3           /**< Front Left IR Sensor Analog Pin  */
+#define IRFR A3           /**< Front Right IR Sensor Analog Pin */
+#define IRFL A2           /**< Front Left IR Sensor Analog Pin  */
 #define IRR A5            /**< Right IR Sensor Analog Pin */
 #define IRL A4            /**< Left IR Sensor Analog Pin  */
 #define THRESHOLD 500     /**< Decision threshold */
-#define END 0b0000        /**< End of track */
-#define STRAIT 0b1001     /**< Strait path */
-#define LETF_TURN 0b0111  /**< Left turn */
-#define RIGT_TURN 0b1110  /**< Right turn */
-#define INTERSECTION 0b1111       /**< Intersection turn */
+
+/* IR DATA*/
+#define END 0b1111        /**< End of track */
+#define STRAIT 0b0110     /**< Strait path */
+
+#define LETF_TURN 0b1110  /**< Left turn */
+#define SLIGHT_L  0b0100
+#define SLIGHT_L2 0b1100
+#define LEFT      0b1000
+
+#define RIGHT_TURN 0b0111  /**< Right turn */
+#define SLIGHT_R  0b0010
+#define SLIGHT_R2 0b0011
+#define RIGHT     0b0001
+
+#define INTERSECTION 0b0000       /**< Intersection turn */
 
 /* Defining PINs for the START and STOP Buttons */
 #define START 28      /**< Start Button Pin */
@@ -54,6 +65,10 @@ MPU6050 mpu6050(Wire);
 
 #define RMOTOR_SPEED 225 /**< Motor Speed */
 #define LMOTOR_SPEED 255 /**< Motor Speed */
+
+#define FULL_SPEED  130
+#define TURN_H      110
+#define TURN_L      90
 
 int AVG_IRL, AVG_IRR, AVG_IRFL, AVG_IRFR;         /**< Average IR Sensor Value */
 int IRR_LDATA ,IRL_LDATA, IRFR_LDATA, IRFL_LDATA; /**< IR Sensor Last Values */
@@ -67,72 +82,9 @@ int lstartState = 0, lstopState = 0;              /**< Last Button State Variabl
 int run;                                          /**< Flag, running (change name)*/
 int ledState = 0;                                 /**< Led State Variable */
 int lastAngle = 0;                                /**< Gyroscope Last Angle Variable */
+int data;
 
-void goStraight(){
-  digitalWrite(M1_CLOCK,HIGH);
-  digitalWrite(M2_CLOCK,HIGH);
-  digitalWrite(M1_ACLOCK,LOW);
-  digitalWrite(M2_ACLOCK,LOW);
-  analogWrite(M1_EN,RMOTOR_SPEED*0.4);
-  analogWrite(M2_EN,LMOTOR_SPEED*0.4);
-
-  #ifdef DEBUG
-  //Serial.println("STRAIT");
-  #endif
-}
-
-void goRight(){
-  M1_SPEED = 225;
-  M2_SPEED = 255;
-  digitalWrite(M1_CLOCK,HIGH);
-  digitalWrite(M2_CLOCK,LOW);
-  digitalWrite(M1_ACLOCK,LOW);
-  digitalWrite(M2_ACLOCK,HIGH); 
-  analogWrite(M1_EN,RMOTOR_SPEED*0.4);
-  analogWrite(M2_EN,LMOTOR_SPEED*0.4);
-
-  #ifdef DEBUG
-  Serial.println("RIGHT");
-  #endif
-}
-
-void goLeft(){
- 
-  mpu6050.update();
-  lastAngle = mpu6050.getAngleX();
-
-  digitalWrite(M1_CLOCK,LOW);
-  digitalWrite(M2_ACLOCK,LOW);
-  digitalWrite(M2_CLOCK,HIGH);
-  digitalWrite(M1_ACLOCK,HIGH);
-  analogWrite(M1_EN,RMOTOR_SPEED*0.4);
-  analogWrite(M2_EN,LMOTOR_SPEED*0.4);
-
-  while(lastAngle - mpu6050.getAngleX() < abs(90)){
-    mpu6050.update();
-  }
-
-  #ifdef DEBUG
-  Serial.println("LEFT");
-  #endif
-}
-
-void stop(){
-  M1_SPEED = 0;
-  M2_SPEED = 0;
-  digitalWrite(M1_CLOCK,LOW);
-  digitalWrite(M2_CLOCK,LOW);
-  digitalWrite(M1_ACLOCK,LOW);
-  digitalWrite(M2_ACLOCK,LOW);
-  analogWrite(M1_EN,LMOTOR_SPEED*0);
-  analogWrite(M2_EN,RMOTOR_SPEED*0);
-
-  #ifdef DEBUG
-  Serial.println("STOP");
-  #endif
-}
-
-void readIRSensor(){
+int readIRSensor(){
   /*
   IRL_DATA = analogRead(IRL) - AVG_IRL;
   IRR_DATA = analogRead(IRR) - AVG_IRR;
@@ -168,29 +120,6 @@ void readIRSensor(){
   }
   */
 
-  if (IR_DATA== LETF_TURN){
-    goLeft();
-  }
-  else if (IR_DATA== RIGT_TURN){
-    goRight();
-  }
-  else if(IR_DATA== STRAIT){  // might not be needed
-    goStraight();
-  }
-  else if(IR_DATA== INTERSECTION){
-    goRight();
-  }
-  else if(IR_DATA== END){
-    stop();
-    // run= 0;
-  }
-
-  IRL_LDATA = IRL_DATA;
-  IRR_LDATA = IRR_DATA;
-  IRFL_LDATA = IRFL_DATA;
-  IRFR_LDATA = IRFR_DATA;
-
-
   #ifdef DEBUG
   /*
     Serial.print("IRL: ");
@@ -202,8 +131,172 @@ void readIRSensor(){
     Serial.print(" IRFR: ");
     Serial.println(IRFR_DATA);
   */
-    Serial.println(IR_DATA, BIN);
+    //Serial.println(IR_DATA, BIN);
   #endif
+  return IR_DATA;
+}
+
+void back(){
+  digitalWrite(M1_CLOCK,LOW);
+  digitalWrite(M2_CLOCK,LOW);
+  digitalWrite(M1_ACLOCK,HIGH);
+  digitalWrite(M2_ACLOCK,HIGH);
+  analogWrite(M1_EN, FULL_SPEED);
+  analogWrite(M2_EN, FULL_SPEED);
+  delay(100);
+}
+
+void stop(){
+  M1_SPEED = 0;
+  M2_SPEED = 0;
+  digitalWrite(M1_CLOCK,LOW);
+  digitalWrite(M2_CLOCK,LOW);
+  digitalWrite(M1_ACLOCK,LOW);
+  digitalWrite(M2_ACLOCK,LOW);
+  analogWrite(M1_EN,LMOTOR_SPEED*0);
+  analogWrite(M2_EN,RMOTOR_SPEED*0);
+  //Serial.println("S");
+}
+
+void goStraight(){
+  digitalWrite(M1_CLOCK,HIGH);
+  digitalWrite(M2_CLOCK,HIGH);
+  digitalWrite(M1_ACLOCK,LOW);
+  digitalWrite(M2_ACLOCK,LOW);
+  analogWrite(M1_EN, FULL_SPEED);
+  analogWrite(M2_EN, FULL_SPEED);
+
+  #ifdef DEBUG
+  //Serial.println("STRAIT");
+  #endif
+}
+
+void slightR(){
+  digitalWrite(M1_CLOCK,HIGH);
+  digitalWrite(M2_CLOCK,HIGH);
+  digitalWrite(M1_ACLOCK,LOW);
+  digitalWrite(M2_ACLOCK,LOW);
+  analogWrite(M1_EN, TURN_L);
+  analogWrite(M2_EN, TURN_H);
+  delay(10);
+  //Serial.println("SR");
+}
+
+void goRight(){
+  stop();
+  delay(30);
+  back();
+  digitalWrite(M1_CLOCK,HIGH);
+  digitalWrite(M2_CLOCK,LOW);
+  digitalWrite(M1_ACLOCK,LOW);
+  digitalWrite(M2_ACLOCK,HIGH); 
+  analogWrite(M1_EN, TURN_H);
+  analogWrite(M2_EN, TURN_H);
+  //Serial.println("R");
+  ledState = 0;
+  delay(500);
+  //stop()
+  back();
+  delay(100);
+}
+
+void goLeft(){
+  stop();
+  delay(30);
+  back();
+  digitalWrite(M1_CLOCK,LOW);
+  digitalWrite(M2_ACLOCK,LOW);
+  digitalWrite(M2_CLOCK,HIGH);
+  digitalWrite(M1_ACLOCK,HIGH);
+  analogWrite(M1_EN, TURN_H);
+  analogWrite(M2_EN, TURN_H);
+ //Serial.println("L");
+  ledState = 0;
+  delay(500);
+  //stop();
+  back();
+  delay(100);
+}
+
+void slightL(){
+  digitalWrite(M1_CLOCK,HIGH);
+  digitalWrite(M2_CLOCK,HIGH);
+  digitalWrite(M1_ACLOCK,LOW);
+  digitalWrite(M2_ACLOCK,LOW);
+  analogWrite(M1_EN,TURN_H);
+  analogWrite(M2_EN,TURN_L);
+  //Serial.println("SL");
+  delay(10);
+}
+
+void rotate(){
+  stop();
+  delay(30);
+  //back();
+  digitalWrite(M1_CLOCK,HIGH);
+  digitalWrite(M2_CLOCK,LOW);
+  digitalWrite(M1_ACLOCK,LOW);
+  digitalWrite(M2_ACLOCK,HIGH); 
+  analogWrite(M1_EN, TURN_H);
+  analogWrite(M2_EN, TURN_H);
+  //Serial.println("R");
+  ledState = 0;
+  delay(500);
+
+  back();
+  delay(100);
+  //goRight();
+  stop();
+  delay(30);
+  //back();
+  digitalWrite(M1_CLOCK,HIGH);
+  digitalWrite(M2_CLOCK,LOW);
+  digitalWrite(M1_ACLOCK,LOW);
+  digitalWrite(M2_ACLOCK,HIGH); 
+  analogWrite(M1_EN, TURN_H);
+  analogWrite(M2_EN, TURN_H);
+  //Serial.println("R");
+  ledState = 0;
+  delay(500);
+  back();
+  delay(100);
+}
+
+void move(void){
+  goStraight();
+  delay(50);
+  data= readIRSensor();
+  if(data== END){
+    stop();
+    //run= 0;
+  }
+  else if(data== 0b0000) goRight();
+}
+
+void control(){
+  ledState = 1;
+  data= readIRSensor();
+  Serial.println(data, BIN);
+  if (IR_DATA== LETF_TURN) goLeft();
+  else if (IR_DATA== SLIGHT_L) slightR();
+  else if (IR_DATA== SLIGHT_L2) slightR();
+  else if (IR_DATA== LEFT) slightR();
+
+  else if (IR_DATA== RIGHT_TURN) goRight();
+  else if (IR_DATA== SLIGHT_R) slightL();
+  else if (IR_DATA== SLIGHT_R2) slightL();
+  else if (IR_DATA== RIGHT) slightL();
+
+  else if(IR_DATA== STRAIT) goStraight();
+  else if(IR_DATA== INTERSECTION) rotate();
+  else if(IR_DATA== END) stop(); //run= 0;
+}
+
+void intrstart(void){
+  run= 1;
+}
+void intrstop(void){
+  run= 0; 
 }
 
 void setup()
@@ -249,10 +342,12 @@ void setup()
   
   startButton.begin();
   stopButton.begin();
+  //startButton.enableInterrupt(intrstart);
+  //stopButton.enableInterrupt(intrstop);
 
   Wire.begin();
-  mpu6050.begin();
-  mpu6050.calcGyroOffsets();
+  //mpu6050.begin();
+  //mpu6050.calcGyroOffsets();
 
   #ifdef DEBUG
     Serial.println("Calibration is completed.");
@@ -263,13 +358,17 @@ void setup()
   #endif
   
   ledState = 0;
+
+
 }
 
 void loop()
 {
+  ledState = 1;
   startState = startButton.read();
   stopState = stopButton.read();
   digitalWrite(HEAD_LED, ledState);
+
 
   if(startState != lstartState){
     if(startState == 1){
@@ -282,17 +381,37 @@ void loop()
     if(stopState == 1){
       stop();
       run= 0;
+      Serial.println("Here");
     }
   }
+  
 
   if(run== 1){
-    readIRSensor();
-    mpu6050.update();
+    //readIRSensor();
+    control();
+    
+    //rotate();
+    /*
+    delay(400);
+    printf("HERE");
+    stop();
+    run= 0;
+    */
+
+    //goRight();
+    //stop();
+    //run= 0;
+    //mpu6050.update();
+
+    //goLeft();
+    //rotate();
+    //stop();
+    //run= 0;
   }
   lstartState = startState;
   lstopState = stopState;
-  ledState = !ledState;
-  delay(50);
+  //ledState = !ledState;
+  //delay(50);
 }
 
 
